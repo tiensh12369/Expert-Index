@@ -13,9 +13,6 @@ from index_metrics import (
 )
 from viz_utils import *
 
-
-
-
 authors_file = "./gsc_data/authors.all"
 data_dir = "./gsc_data/DATA/"
 output_file = "all_index_results.csv"
@@ -76,6 +73,7 @@ plt.savefig("top_k_overlap_heatmap.png", dpi=600)
 print("Analyzing independent authors...")
 authors_count = 0
 unique_authors_by_index = find_index_specific_top_k_authors(index_df_short, index_columns, k=5)
+
 for idx, authors in unique_authors_by_index.items():
     print(f"{len(authors)} authors included in the {idx} index as Top-K only: {authors}")
     authors_count += len(authors)
