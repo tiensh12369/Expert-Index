@@ -1,271 +1,208 @@
 import os
-from index_evaluator import load_authors_data, evaluate_all_with_expert_index
-from viz_utils import plot_index_correlation_heatmap
 import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from collections import defaultdict
+from index_evaluator import load_authors_data, evaluate_all_with_expert_index
+from data_utils import load_author_publications, load_author_index_time_series
+from index_metrics import (
+    h_index, g_index, i10_index, ha_index, ar_index,
+    timed_h_index, contemporary_h_index, trend_h_index,
+    career_years_h_index_by_average_citations_per_year,
+)
+from viz_utils import *
 
-# 경로 설정
+
+
+
 authors_file = "./gsc_data/authors.all"
 data_dir = "./gsc_data/DATA/"
 output_file = "all_index_results.csv"
+current_year = 2013
 
-# 데이터 로드
+print("Calculating or loading exponents...")
 authors_data = load_authors_data(authors_file)
-
 if not os.path.exists(output_file):
-    index_df = evaluate_all_with_expert_index(authors_data, data_dir, current_year=2013)
+    index_df, max_q, max_r = evaluate_all_with_expert_index(authors_data, data_dir, current_year)
+    print(max_q, max_r)
     index_df.to_csv(output_file, index=False)
 else:
     index_df = pd.read_csv(output_file)
     
-from viz_utils import plot_index_scatter
+start_year = 1970
+end_year = 2013
 
-# 예시 시각화 실행
-plot_index_scatter(index_df, "h_index", "ha_index")
-plot_index_correlation_heatmap(index_df, method='pearson')
-plot_index_correlation_heatmap(index_df, method='spearman')
+authors_data = load_authors_data(authors_file)
 
-
-from viz_utils import print_top_k_authors, INDEX_NAME_MAP
-
-# 사용한 지수 컬럼 (축약 후)
-short_cols = list(INDEX_NAME_MAP.values())
-
-# 결과 데이터에서 축약 컬럼 적용
-index_df_short = index_df.rename(columns=INDEX_NAME_MAP)
-
-# Top-10 저자 출력
-print_top_k_authors(index_df_short, k=10, index_columns=short_cols)
-
-from viz_utils import compute_top_k_overlap_matrix, plot_top_k_overlap_heatmap, INDEX_NAME_MAP
-
-# 지수 이름 축약
+expert_by_year_file = f"index_by_{end_year}.csv"
+if not os.path.exists(expert_by_year_file):
+    print(f"Calculating the full author year-by-year index...{expert_by_year_file}")
+    index_df, max_q, max_r = evaluate_all_with_expert_index(authors_data, data_dir, end_year)
+    print(max_q, max_r)
+    index_df.to_csv(expert_by_year_file, index=False)
+    print(f"Completion of calculation for {end_year}")
+else:
+    index_df = pd.read_csv(expert_by_year_file)
+    print(f"Load completed in {end_year}")
+    
 index_df_short = index_df.rename(columns=INDEX_NAME_MAP)
 index_columns = list(INDEX_NAME_MAP.values())
 
-# Top-K 교차 분석
-overlap_matrix = compute_top_k_overlap_matrix(index_df_short, index_columns, k=20)
+corr_pearson = plot_index_correlation_heatmap(index_df, method='pearson')
+mask = np.triu(np.ones_like(corr_pearson, dtype=bool), k=1)
 
-# 결과 확인 및 시각화
-print(overlap_matrix)
-plot_top_k_overlap_heatmap(overlap_matrix)
+plt.figure(figsize=(12, 10))
+sns.heatmap(corr_pearson, annot=True, annot_kws={"size": 10}, cmap="coolwarm", mask=mask)
+plt.tight_layout()
+plt.savefig("pearson_heatmap.png", dpi=600)
 
-from viz_utils import (
-    find_index_specific_top_k_authors,
-    plot_rank_shift,
-    INDEX_NAME_MAP
-)
+corr_spearman = plot_index_correlation_heatmap(index_df, method='spearman')
 
-index_df_short = index_df.rename(columns=INDEX_NAME_MAP)
-index_columns = list(INDEX_NAME_MAP.values())
+mask = np.triu(np.ones_like(corr_spearman, dtype=bool), k=1)
+plt.figure(figsize=(12, 10))
+sns.heatmap(corr_spearman, annot=True, annot_kws={"size": 10}, cmap="coolwarm", mask=mask)
+plt.tight_layout()
+plt.savefig("spearman_heatmap.png", dpi=600)
 
-# 1. 독립 Top-K 저자 찾기
-unique_authors_by_index = find_index_specific_top_k_authors(index_df_short, index_columns, k=20)
+print("Comparing and Overlapping Top-K...")
+overlap_matrix = compute_top_k_overlap_matrix(index_df_short, index_columns, k=800)
+mask = np.triu(np.ones_like(overlap_matrix, dtype=float), k=1)
+plt.figure(figsize=(12, 10))
+sns.heatmap(overlap_matrix.astype(float), annot=True, fmt=".2f", annot_kws={"size": 10}, cmap="YlGnBu", mask=mask)
+plt.tight_layout()
+plt.savefig("top_k_overlap_heatmap.png", dpi=600)
+
+print("Analyzing independent authors...")
+authors_count = 0
+unique_authors_by_index = find_index_specific_top_k_authors(index_df_short, index_columns, k=5)
 for idx, authors in unique_authors_by_index.items():
-    print(f"🔹 {idx} 지수에만 Top-K로 포함된 저자 {len(authors)}명: {authors}")
+    print(f"{len(authors)} authors included in the {idx} index as Top-K only: {authors}")
+    authors_count += len(authors)
 
-# 2. 랭킹 변화 시각화 (expert 기준)
-plot_rank_shift(index_df_short, index_columns, base_index='expert', top_n=20)
+print("Visualizing the number of unique authors according to Top-K expansion...")
+k_range = list(range(10, 110, 10))
+author_counts_by_k = plot_unique_author_counts_by_k(index_df_short, index_columns, k_values=k_range)
 
-from viz_utils import plot_unique_author_counts_by_k, INDEX_NAME_MAP
+author_id = "sUVeH-4AAAAJ"
+index_df_single = load_author_index_time_series(author_id, "./", 2009, 2013)
+plot_df, paper_stats = plot_author_index_and_activity_time_series(author_id, index_df_single, data_dir)
 
-index_df_short = index_df.rename(columns=INDEX_NAME_MAP)
-index_columns = list(INDEX_NAME_MAP.values())
-k_range = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+current_year = 2013
 
-plot_unique_author_counts_by_k(index_df_short, index_columns, k_values=k_range)
+summary_stats = []
+temporal_activity = defaultdict(list)
 
-from viz_utils import analyze_unique_authors_characteristics
+top_k_dict = get_top_k_authors(index_df, k=800, index_cols=None)
 
-unique_authors_by_index = find_index_specific_top_k_authors(index_df_short, index_columns, k=30)
-cy_avg_unique_authors = unique_authors_by_index["expert"]
-
-analyze_unique_authors_characteristics(cy_avg_unique_authors, data_dir, current_year=2013)
-
-from viz_utils import plot_index_clustermap
-
-plot_index_clustermap(overlap_matrix, k=30)
-
-from viz_utils import INDEX_NAME_MAP, analyze_extreme_rank_shift
-
-index_df_short = index_df.rename(columns=INDEX_NAME_MAP)
-index_columns = list(INDEX_NAME_MAP.values())
-
-extreme_cases = analyze_extreme_rank_shift(index_df_short, index_columns, base_index='expert', top_n=5)
-import os
-import math
-import pandas as pd
-
-# 1. quality score 계산
-def compute_quality_score(papers, current_year):
-    return sum(math.log(c * math.exp((y - current_year) / 10) + 1) for c, y in papers)
-
-# 2. recency score 계산
-def compute_recency_score(papers, current_year):
-    rec = 0
-    for _, y in papers:
-        val = max(round((1 - (current_year - 3 - y) * 0.1), 2), 0.1)
-        rec += max(val, 1)
-    return rec * len(papers)
-
-# 3. 저자 논문 불러오기
-def load_author_publications(data_dir, author_id, current_year):
-    file_path = os.path.join(data_dir, f"{author_id}_.dat")
-    if not os.path.exists(file_path):
-        return []
-    with open(file_path, encoding="cp1252") as f:
-        lines = [line.strip().split("|") for line in f if "|" in line]
-        return [(int(c), int(y)) for c, y in lines if int(y) <= current_year]
-
-# 4. 전체 저자 연도별 expert 지수 계산
-def evaluate_expert_by_year(authors_file, data_dir, start_year, end_year, a=50, b=50):
-    with open(authors_file, encoding="cp1252") as f:
-        author_ids = [line.strip().split("|")[-1] for line in f if "|" in line and line.strip().split("|")[-1]]
-
-    all_records = []
-
-    for year in range(start_year, end_year + 1):
-        print(f"⏳ Processing year {year}...")
-
-        year_scores = []
-        for author_id in author_ids:
-            papers = load_author_publications(data_dir, author_id, current_year=year)
-            if not papers:
-                continue
-            q = compute_quality_score(papers, year)
-            r = compute_recency_score(papers, year)
-            year_scores.append((author_id, q, r))
-
-        if not year_scores:
+for index_name, author_ids in top_k_dict.items():
+    for author_id in author_ids:
+        df = load_author_publications(data_dir, author_id, current_year)
+        df = df[(df["year"] >= 1970) & (df["year"] <= current_year)]  # ✅ 연도 필터링
+        if df.empty:
             continue
 
-        max_q = max(q for _, q, _ in year_scores) or 1
-        max_r = max(r for _, _, r in year_scores) or 1
+        first_year = df["year"].min()
+        last_year = df["year"].max()
+        career_years = last_year - first_year + 1
 
-        for author_id, q, r in year_scores:
-            expert = a * (q / max_q) + b * (r / max_r)
-            all_records.append({
-                "author_id": author_id,
-                "year": year,
-                "quality_score": q,
-                "recency_score": r,
-                "expert_index": expert
-            })
+        summary_stats.append({
+            "index": index_name,
+            "author_id": author_id,
+            "papers": len(df),
+            "total_citations": df["citations"].sum(),
+            "avg_citations": df["citations"].mean(),
+            "recent_5y_citations": df[df["year"] >= current_year - 5]["citations"].sum(),
+            "career_years": career_years,
+            "avg_year": df["year"].mean()
+        })
 
-    return pd.DataFrame(all_records)
+        year_group = df.groupby("year")["citations"].sum()
+        for year, c in year_group.items():
+            temporal_activity[(index_name, year)].append(c)
 
-df_expert_series = evaluate_expert_by_year(
-    authors_file="./gsc_data/authors.all",
-    data_dir="./gsc_data/DATA/",
-    start_year=1970,
-    end_year=2013
-)
+summary_df = pd.DataFrame(summary_stats)
 
-# 결과 저장
-df_expert_series.to_csv("expert_index_by_year.csv", index=False)
+print("\n [Summary of Basic Statistics for Independent Authors]")
+summary_table = summary_df.groupby("index").agg({
+    "papers": ["mean", "std"],
+    "total_citations": ["mean", "std"],
+    "avg_citations": ["mean", "std"],
+    "recent_5y_citations": ["mean", "std"],
+    "career_years": ["mean", "std"],
+    "avg_year": ["mean", "std"]
+}).round(2)
+
+weighted_avg_citations = (
+    summary_df.groupby("index").apply(lambda df: df["total_citations"].sum() / df["papers"].sum())
+).round(2)
+
+summary_table[("avg_citations", "weighted")] = weighted_avg_citations
+
+display(summary_table)
+
+summary_table.to_excel("independent_author_stats.xlsx")
+print("Save complete: independent_author_stats.xlsx")
+
+def show_author_summary(author_id, index_df, data_dir, current_year=2013):
+    if author_id not in index_df["author_id"].values:
+        print(f"The corresponding author_id ({author_id}) does not exist in index_df.")
+        return
+
+    row = index_df[index_df["author_id"] == author_id].squeeze()
+    rank_df = index_df.copy()
+    for col in index_df.columns:
+        if col not in {"author_id", "quality_score", "recency_score"} and pd.api.types.is_numeric_dtype(index_df[col]):
+            rank_df[f"{col}_rank"] = index_df[col].rank(method="min", ascending=False)
+    row_rank = rank_df[rank_df["author_id"] == author_id].squeeze()
+
+    df = load_author_publications(data_dir, author_id, current_year=current_year)
+    df = df[(df["year"] >= 2009) & (df["year"] <= current_year)]
+    if df.empty or "year" not in df.columns:
+        print("The paper data does not exist.")
+        return
+
+    first_year = int(df["year"].min())
+    last_year = int(df["year"].max())
+    career_years = last_year - first_year + 1
+    paper_count = len(df)
+    total_citations = int(df["citations"].sum())
+
+    metrics = [
+        col for col in index_df.columns 
+        if col not in {"author_id", "quality_score", "recency_score"}
+        and pd.api.types.is_numeric_dtype(index_df[col])
+    ]
+
+    data = {
+        "author_id": author_id,
+        "paper_count": paper_count,
+        "citation_count": total_citations,
+        "first_pub_year": first_year,
+        "last_pub_year": last_year,
+        "career_years": career_years
+    }
+
+    for col in metrics:
+        data[col] = row[col]
+        data[f"{col}_rank"] = int(row_rank[f"{col}_rank"])
+
+    return pd.DataFrame([data])
+
+top_k_dict = get_top_k_authors(index_df, k=5, index_cols=None)
+all_unique_authors = sorted(set().union(*top_k_dict.values()))
+summary_dfs = []
+
+for author_id in all_unique_authors:
+    df = show_author_summary(author_id, index_df, data_dir)
+    if df is not None:
+        summary_dfs.append(df)
+
+final_summary = pd.concat(summary_dfs, ignore_index=True)
+display(final_summary.head())
+output_path = "unique_authors_summary_top5_2009.csv"
+final_summary.to_csv(output_path, index=False, encoding="utf-8-sig")
+print(len(final_summary))
+print(f"Save complete: {output_path}")
 
 
-top_10_per_year = df_expert_series.groupby("year").apply(
-    lambda x: x.nlargest(10, "expert_index")[["author_id", "expert_index"]]
-)
-print(top_10_per_year)
-
-author = "ar-SwCsAAAAJ"
-df_author = df_expert_series[df_expert_series.author_id == author]
-
-import matplotlib.pyplot as plt
-plt.plot(df_author["year"], df_author["expert_index"], marker="o")
-plt.title(f"Expert Index Over Time: {author}")
-plt.xlabel("Year")
-plt.ylabel("Expert Index")
-plt.grid(True)
-plt.show()
-
-df_expert_series.groupby("year")["expert_index"].mean().plot(
-    marker="o", title="Average Expert Index Over Time"
-)
-
-import seaborn as sns
-sns.boxplot(x="year", y="expert_index", data=df_expert_series)
-plt.title("Expert Index Distribution by Year")
-plt.grid(True)
-plt.show()
-
-def find_emerging_authors(df, year_target, k=20):
-    top_sets = {}
-    for year in sorted(df["year"].unique()):
-        top_k = df[df["year"] == year].nlargest(k, "expert_index")["author_id"]
-        top_sets[year] = set(top_k)
-
-    # 2013 Top-K에서 이전 연도 Top-K에 없던 author
-    previous = set().union(*[top_sets[y] for y in top_sets if y < year_target])
-    current = top_sets[year_target]
-    new_authors = current - previous
-    return new_authors
-
-newbies = find_emerging_authors(df_expert_series, year_target=2013, k=20)
-df_newbies = df_expert_series[df_expert_series["author_id"].isin(newbies)]
-
-import seaborn as sns
-plt.figure(figsize=(10, 6))
-sns.lineplot(data=df_newbies, x="year", y="expert_index", hue="author_id", marker="o")
-plt.title("Emerging Authors in 2013 (Top-K newcomers)")
-plt.xlabel("Year")
-plt.ylabel("Expert Index")
-plt.grid(True)
-plt.legend(title="Author ID", bbox_to_anchor=(1.05, 1), loc="upper left")
-plt.tight_layout()
-plt.show()
-
-# 2013년 Top-20 중, 이전 연도에는 없던 신진 연구자 추출
-new_authors = find_emerging_authors(df_expert_series, year_target=2013, k=20)
-print("🔍 신진 연구자 목록 (2013 기준):")
-print(new_authors)
-
-example_author = list(new_authors)[0]  # 첫 번째 저자 예시 선택
-df_one = df_expert_series[df_expert_series.author_id == example_author]
-
-# 시각화
-import matplotlib.pyplot as plt
-plt.plot(df_one["year"], df_one["expert_index"], marker="o", label="expert")
-plt.plot(df_one["year"], df_one["quality_score"], marker="s", label="quality", linestyle="--")
-plt.plot(df_one["year"], df_one["recency_score"], marker="^", label="recency", linestyle=":")
-plt.title(f"Expert Components Over Time: {example_author}")
-plt.xlabel("Year")
-plt.ylabel("Score")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-target = example_author  # 이전에 찾은 신진 저자
-row = index_df_short[index_df_short["author_id"] == target]
-
-# 점수와 순위 추출
-score_cols = list(INDEX_NAME_MAP.values())
-rank_cols = [f"{col}_rank" for col in score_cols]
-
-summary = row[["author_id"] + score_cols + rank_cols].T
-print(summary)
-
-df_papers = load_author_publications(data_dir, example_author, current_year=2013)
-
-# 연도별 논문 수
-papers_per_year = df_papers.groupby("year").size()
-
-# 연도별 인용 수 총합
-citations_per_year = df_papers.groupby("year")["citations"].sum()
-
-# 시각화
-import matplotlib.pyplot as plt
-fig, ax1 = plt.subplots(figsize=(10, 4))
-ax1.plot(papers_per_year.index, papers_per_year.values, marker="o", label="Paper Count")
-ax1.set_ylabel("Number of Papers")
-
-ax2 = ax1.twinx()
-ax2.plot(citations_per_year.index, citations_per_year.values, marker="s", label="Citations", color="orange")
-ax2.set_ylabel("Total Citations")
-
-plt.title(f"Paper & Citation Trend: {example_author}")
-plt.grid(True)
-fig.legend(loc="upper left", bbox_to_anchor=(0.1, 0.9))
-plt.tight_layout()
-plt.show()
