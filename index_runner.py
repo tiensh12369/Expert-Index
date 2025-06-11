@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from IPython.display import display
 from collections import defaultdict
 from index_evaluator import load_authors_data, evaluate_all_with_expert_index
 from data_utils import load_author_publications, load_author_index_time_series
