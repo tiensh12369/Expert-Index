@@ -59,9 +59,12 @@ def evaluate_all_with_expert_index(authors_data, data_dir, current_year=2013, a=
         result["recency_score"] = r
         results.append(result)
 
+    if not results:
+        return pd.DataFrame(), 0, 0
+
     # 정규화
-    max_q = max(r["quality_score"] for r in results) or 1
-    max_r = max(r["recency_score"] for r in results) or 1
+    max_q = max((r["quality_score"] for r in results), default=0) or 1
+    max_r = max((r["recency_score"] for r in results), default=0) or 1
 
     for r in results:
         q_norm = r["quality_score"] / max_q
