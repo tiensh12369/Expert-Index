@@ -43,9 +43,3 @@ Running the script produces CSV files with computed scores (for example `all_ind
 - `unique_author_counts.png` – how many authors are uniquely ranked in each metric
 
 A summary CSV named `unique_authors_summary_top5_2009.csv` is also generated for the top authors.
-
-## License
-This project is released under the MIT License. See the `LICENSE` file for full text.
-
-## Contributing
-Contributions are welcome! Please open an issue or submit a pull request. For large changes, discuss your plan in an issue first so it can be aligned with the project's goals.
