@@ -1,5 +1,4 @@
 import math
-import numpy as np
 
 def h_index(papers):
     citations = sorted([c for c, _ in papers], reverse=True)
@@ -162,36 +161,6 @@ def career_years_h_index_by_average_citations_per_year(papers):
             return hint
 
     return float(h)
-
-def twci(papers, current_year, t=5, gamma=1.0):
-
-    """
-    Calculate the IV-T index for a list of papers.
-
-    Parameters:
-    - papers: List[Tuple[int, int]]
-        List of papers as (citations, publication year) tuples.
-    - T1: int
-        Start year (lower bound of the evaluation window)
-    - T2: int
-        End year (upper bound of the evaluation window and reference year)
-    - gamma: float
-        Time decay factor (default 1.5)
-
-    Returns:
-    - float
-        Calculated TWCI score
-    """
-    T1 = current_year - t
-    T2 = current_year
-    
-    twci_score = 0.0
-    for citations, pub_year in papers:
-        if T1 <= pub_year <= T2:
-            age = T2 - pub_year + 1
-            twci_score += np.log(citations + 1) / (age ** gamma)
-    return twci_score
-    
 
 # def calculate_all_indices(papers, current_year):
 #     return {
