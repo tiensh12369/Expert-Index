@@ -23,12 +23,12 @@ def i10_index(papers):
 def ar_index(papers, current_year):
     if not papers:
         return 0
-    # 1. 인용수 기준 내림차순 정렬
+    # 1. Sort by citation count in descending order
     sorted_papers = sorted(papers, key=lambda x: x[0], reverse=True)
-    # 2. h-index 계산
+    # 2. Calculate the h-index
     h = h_index(papers)
     core = sorted_papers[:h]
-    # 3. 감쇠 인용 합산
+    # 3. Sum of decayed citations
     ar_score = sum(c / (current_year - y + 1) for c, y in core)
     return ar_score ** 0.5
 
@@ -94,11 +94,11 @@ def trend_h_index(papers, current_year, gamma=4, delta=1):
 def career_year_h_index_by_publications(papers):
     """
     Mahbuba and Rousseau (2013):
-    최대 h: h개의 연도가 각각 h개 이상의 논문을 가질 때
+    Maximum h when h years each have at least h papers.
     """
     if not papers:
         return 0
-    # 연도별 출판 수 계산
+    # Count publications by year
     year_pubs = {}
     for _, y in papers:
         if y not in year_pubs:
@@ -115,21 +115,21 @@ def career_year_h_index_by_publications(papers):
 def career_year_h_index_by_publications_year_citations(papers):
     """
     Mahbuba and Rousseau (2013):
-    최대 h: h개의 연도가 각각 h회 이상의 총 인용 수를 가질 때
+    Maximum h when h years each have at least h total citations.
     """
     if not papers:
         return 0
-    # 연도별 인용 수 계산
+    # Sum citations by year
     year_citations = {}
     for c, y in papers:
         if y not in year_citations:
             year_citations[y] = 0
         year_citations[y] += c
 
-    # 인용 수 기준 내림차순 정렬
+    # Sort total citations in descending order
     citation_counts = sorted(year_citations.values(), reverse=True)
 
-    # h-style 조건 적용
+    # Apply h-style condition
     for i, total_cit in enumerate(citation_counts, 1):
         if total_cit < i:
             return i - 1
@@ -153,10 +153,10 @@ def career_years_h_index_by_average_citations_per_year(papers):
         else:
             break
 
-    # 보간 적용
+    # Apply interpolation
     if h < len(avg_per_year):
-        ch = avg_per_year[h - 1]  # h번째 평균 인용수
-        ch1 = avg_per_year[h]     # h+1번째 평균 인용수
+        ch = avg_per_year[h - 1]  # average citations at h
+        ch1 = avg_per_year[h]     # average citations at h+1
         if ch != ch1:
             hint = ((h + 1) * ch - h * ch1) / (1 - ch1 + ch)
             return hint
@@ -166,21 +166,21 @@ def career_years_h_index_by_average_citations_per_year(papers):
 def twci(papers, current_year, t=5, gamma=1.0):
 
     """
-    논문 목록에 대해 IV-T 지수를 계산하는 함수.
+    Calculate the IV-T index for a list of papers.
 
     Parameters:
     - papers: List[Tuple[int, int]]
-        논문 목록. 각 항목은 (인용수, 출판연도)의 튜플.
+        List of papers as (citations, publication year) tuples.
     - T1: int
-        시작 연도 (평가 구간의 하한)
+        Start year (lower bound of the evaluation window)
     - T2: int
-        종료 연도 (평가 구간의 상한이자 기준 시점)
+        End year (upper bound of the evaluation window and reference year)
     - gamma: float
-        시간 감쇠 계수 (기본값은 1.5)
+        Time decay factor (default 1.5)
 
     Returns:
     - float
-        계산된 TWCI 점수
+        Calculated TWCI score
     """
     T1 = current_year - t
     T2 = current_year
@@ -222,7 +222,7 @@ def calculate_all_indices(papers, current_year):
     
 # def evaluate_expert_by_year(authors_file, data_dir, start_year, end_year, a=50, b=50):
 #     """
-#     연도별로 전체 author의 expert 점수를 계산하여 시계열 DataFrame 생성
+#     Compute expert scores for all authors each year and return a time-series DataFrame.
 #     """
 #     import pandas as pd
 #     import math

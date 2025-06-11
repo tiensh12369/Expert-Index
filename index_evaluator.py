@@ -3,7 +3,7 @@ import pandas as pd
 import math
 
 from index_metrics import calculate_all_indices
-from data_utils import load_author_publications  # ✅ 공통 모듈에서 함수 사용
+from data_utils import load_author_publications  # use helper from shared module
 
 
 def load_authors_data(authors_file):
@@ -62,18 +62,18 @@ def evaluate_all_with_expert_index(authors_data, data_dir, current_year=2013, a=
     if not results:
         return pd.DataFrame(), 0, 0
 
-    # 정규화
+    # Normalization
     max_q = max((r["quality_score"] for r in results), default=0) or 1
     max_r = max((r["recency_score"] for r in results), default=0) or 1
 
     for r in results:
         q_norm = r["quality_score"] / max_q
         r_norm = r["recency_score"] / max_r
-        r["expert_index"] = a * q_norm + b * r_norm  # ✅ 논문 정의와 일치
+        r["expert_index"] = a * q_norm + b * r_norm  # matches definition in the paper
 
     df = pd.DataFrame(results)
 
-    # 랭킹 계산 (높을수록 좋은 순위)
+    # Rank calculation (higher is better)
     # for col in df.columns:
     #     if col not in {"author_id"} and pd.api.types.is_numeric_dtype(df[col]):
     #         df[f"{col}_rank"] = df[col].rank(method="min", ascending=False)

@@ -96,7 +96,8 @@ top_k_dict = get_top_k_authors(index_df, k=800, index_cols=None)
 for index_name, author_ids in top_k_dict.items():
     for author_id in author_ids:
         df = load_author_publications(data_dir, author_id, current_year)
-        df = df[(df["year"] >= 1970) & (df["year"] <= current_year)]  # ✅ 연도 필터링
+        # Filter out publications outside the valid year range
+        df = df[(df["year"] >= 1970) & (df["year"] <= current_year)]
         if df.empty:
             continue
 

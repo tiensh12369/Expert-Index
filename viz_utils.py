@@ -8,7 +8,7 @@ from scipy.stats import zscore
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 
-# ✅ 컬럼 축약 매핑 사전
+# Mapping for shortened column names
 INDEX_NAME_MAP = {
     'h_index': 'h',
     'g_index': 'g',
@@ -28,13 +28,13 @@ INDEX_NAME_MAP = {
 
 def get_styled_index_map(index_columns):
 
-    # ✅ 컬러팔레트 (색상 최대 10개까지 시각적으로 잘 구분됨)
+    # Color palette (up to 10 visually distinct colors)
     color_palette = plt.get_cmap("tab10").colors
 
-    # ✅ 마커 리스트 (논문용/발표용에서 시각적으로 명확한 형태)
+    # Marker list for clear visualization in papers/presentations
     marker_list = ["o", "s", "D", "^", "v", "*", "X", "<", ">"]
 
-    # ✅ 선 스타일 반복
+    # Cycle line styles
     linestyle_list = ["-", "--", "-."]
 
     index_styles = {}
@@ -49,21 +49,21 @@ def get_styled_index_map(index_columns):
     return index_styles
 
 
-# ✅ 컬럼 이름 축약 적용
+# Apply column name shortening
 def shorten_index_names(df):
     return df.rename(columns=INDEX_NAME_MAP)
 
 def get_top_k_authors(index_df, k=20, index_cols=None):
     """
-    각 지수별로 Top-K author_id 리스트를 반환하는 공통 함수
+    Return Top-K author_id lists for each index.
 
     Parameters:
-    - index_df: author_id + 지수 컬럼이 포함된 DataFrame
-    - k: Top-K 수
-    - index_cols: 사용할 지수 컬럼명 리스트 (None이면 모든 수치형 컬럼 자동 선택)
+    - index_df: DataFrame containing author_id and index columns
+    - k: number of top authors to return
+    - index_cols: list of index column names (if None, all numeric columns are selected automatically)
 
     Returns:
-    - top_k_dict: {지수명: [author_id, ...]} 형태의 딕셔너리
+    - top_k_dict: dictionary of {index_name: [author_id, ...]}
     """
     short_df = shorten_index_names(index_df)
     
@@ -81,15 +81,15 @@ def get_top_k_authors(index_df, k=20, index_cols=None):
     return top_k_dict
 
 
-# ✅ 상관관계 히트맵 시각화
+# Plot correlation heatmap
 def plot_index_correlation_heatmap(df, method='pearson'):
     short_df = shorten_index_names(df)
 
-    # 분석 대상 컬럼만 선택 (숫자형만, author_id 등 제외)
+    # Select only numeric columns for analysis, excluding identifiers
     exclude_cols = {'author_id', 'recency_score', 'quality_score', 'paper_count'}
     index_cols = [col for col in short_df.columns if col not in exclude_cols and pd.api.types.is_numeric_dtype(short_df[col])]
 
-    # 상관계수 계산 및 시각화
+    # Compute and visualize correlation
     corr = short_df[index_cols].corr(method=method)
     plt.figure(figsize=(10, 8))
     sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True)
@@ -100,22 +100,22 @@ def plot_index_correlation_heatmap(df, method='pearson'):
     return corr
 
 def print_top_k_authors(df, k=10, index_columns=None, id_col="author_id"):
-    print(f"🔝 Top-{k} Authors by Each Index:\\n")
+    print(f"Top-{k} Authors by Each Index:\n")
     for col in index_columns:
-        print(f"📌 {col}")
+        print(f"{col}")
         top_authors = df[[id_col, col]].sort_values(by=col, ascending=False).head(k)
         print(top_authors.to_string(index=False))
         print("-" * 40)
 
-# ✅ Top-K 저자 간 겹침 수 교차표 계산
+# Compute overlap counts between Top-K authors
 def compute_top_k_overlap_matrix(df, index_columns, k=10, id_col="author_id"):
     overlap_matrix = pd.DataFrame(index=index_columns, columns=index_columns)
 
-    # 각 지수별 Top-K 저자 set 생성
+    # Build Top-K author sets for each index
     top_k_dict = get_top_k_authors(df, k, index_columns)
     top_k_sets = {col: set(ids) for col, ids in top_k_dict.items()}
 
-    # 교차 비교 (겹치는 수 계산)
+    # Cross compare to count overlaps
     for col1 in index_columns:
         for col2 in index_columns:
             overlap = len(top_k_sets[col1].intersection(top_k_sets[col2]))
@@ -124,7 +124,7 @@ def compute_top_k_overlap_matrix(df, index_columns, k=10, id_col="author_id"):
 
     return overlap_matrix.round(1)
 
-# ✅ 히트맵 시각화
+# Plot heatmap
 def plot_top_k_overlap_heatmap(overlap_matrix):
     plt.figure(figsize=(10, 8))
     sns.heatmap(overlap_matrix, annot=True, fmt="d", cmap="YlGnBu", square=True)
@@ -167,7 +167,7 @@ def plot_rank_shift(df, index_columns, base_index, top_n=15, id_col="author_id")
 def plot_unique_author_counts_by_k(df, index_columns, k_values, id_col="author_id"):
     data = []
 
-    # ✅ Top-K 유니크 저자 수 계산
+    # Compute the number of unique Top-K authors
     for k in k_values:
         top_k_dict = get_top_k_authors(df, k, index_columns)
         top_k_sets = {col: set(ids) for col, ids in top_k_dict.items()}
@@ -183,10 +183,10 @@ def plot_unique_author_counts_by_k(df, index_columns, k_values, id_col="author_i
 
     result_df = pd.DataFrame(data)
 
-    # ✅ 스타일 맵 가져오기
+    # Retrieve style map
     index_styles = get_styled_index_map(index_columns)
 
-    # ✅ 시각화
+    # Visualization
     plt.figure(figsize=(12, 6))
     for col in index_columns:
         subset = result_df[result_df["index"] == col]
@@ -213,15 +213,15 @@ def plot_unique_author_counts_by_k(df, index_columns, k_values, id_col="author_i
 
 
 def plot_index_clustermap(overlap_matrix, k):
-    # 유사도 → 거리 행렬로 변환
+    # Convert similarity matrix to distance matrix
     dist_matrix = 1 - overlap_matrix.astype(float) / k
 
-    # Clustermap 시각화
+    # Visualize clustermap
     sns.clustermap(dist_matrix, cmap="Blues", annot=True, fmt=".2f")
     plt.title("Index Clustering by Top-K Overlap")
     plt.show()
 
-# 시각화 예시: ha-index vs h-index
+# Example visualization: ha-index vs h-index
 def plot_index_scatter(df, x_col, y_col):
     plt.figure(figsize=(8, 6))
     sns.scatterplot(x=x_col, y=y_col, data=df)
@@ -245,7 +245,7 @@ def analyze_unique_authors_characteristics(unique_authors, data_dir, current_yea
         all_citations.extend(df["citations"])
         paper_counts.append(len(df))
 
-    # 1. 연도 분포 시각화
+    # 1. Plot distribution of publication years
     plt.figure(figsize=(10, 4))
     sns.histplot(all_years, bins=range(min(all_years), current_year+1), kde=False)
     plt.title("Publication Year Distribution of Unique Authors")
@@ -254,7 +254,7 @@ def analyze_unique_authors_characteristics(unique_authors, data_dir, current_yea
     plt.tight_layout()
     plt.show()
 
-    # 2. 인용수 분포
+    # 2. Plot citation distribution
     plt.figure(figsize=(10, 4))
     sns.histplot(all_citations, bins=20, kde=False)
     plt.title("Citation Distribution of Unique Authors")
@@ -263,31 +263,31 @@ def analyze_unique_authors_characteristics(unique_authors, data_dir, current_yea
     plt.tight_layout()
     plt.show()
 
-    # 3. 평균 논문 수와 인용수 출력
-    print(f"🧾 저자 수: {len(paper_counts)}")
-    print(f"📚 평균 논문 수: {sum(paper_counts)/len(paper_counts):.2f}")
-    print(f"📈 평균 인용 수: {sum(all_citations)/len(all_citations):.2f}")
+    # 3. Print average paper and citation counts
+    print(f"Number of authors: {len(paper_counts)}")
+    print(f"Average paper count: {sum(paper_counts)/len(paper_counts):.2f}")
+    print(f"Average citations: {sum(all_citations)/len(all_citations):.2f}")
 
 def analyze_extreme_rank_shift(df, index_columns, base_index='expert', top_n=5, id_col='author_id'):
-    # 모든 지수에 대한 순위 계산
+    # Calculate rankings for all indices
     rank_df = df[[id_col] + index_columns].copy()
     for col in index_columns:
         rank_df[f"{col}_rank"] = rank_df[col].rank(ascending=False, method='min')
 
     base_rank = rank_df[f"{base_index}_rank"]
 
-    # 지수별로 기준 지수와의 랭킹 차이 계산
+    # Compute rank differences relative to the base index
     for col in index_columns:
         if col != base_index:
             rank_df[f"{col}_rank_diff"] = (rank_df[f"{col}_rank"] - base_rank).abs()
 
-    # 최대 변화가 큰 저자 추출
+    # Select authors with the largest change
     rank_df["max_rank_diff"] = rank_df[[f"{col}_rank_diff" for col in index_columns if col != base_index]].max(axis=1)
     top_authors = rank_df.sort_values(by="max_rank_diff", ascending=False).head(top_n)
 
-    # 결과 테이블 출력
+    # Display result table
     display_cols = [id_col] + index_columns + [f"{col}_rank" for col in index_columns]
-    print(f"🧠 기준 지수: {base_index} 기준, 랭킹 변화가 큰 Top-{top_n} 저자")
+    print(f"Top-{top_n} authors with large rank changes relative to {base_index}")
     
     display(top_authors[display_cols])
     
@@ -295,7 +295,7 @@ def analyze_extreme_rank_shift(df, index_columns, base_index='expert', top_n=5, 
 
 def plot_author_index_and_activity_time_series(author_id, index_df, data_dir, selected_columns=None, normalize_zscore=True):
     """
-    특정 저자의 지수 시계열과 논문 수/인용 수를 시각화하는 함수
+    Visualize index time series and paper/citation counts for a specific author.
     """
     short_df = shorten_index_names(index_df)
 
@@ -312,7 +312,7 @@ def plot_author_index_and_activity_time_series(author_id, index_df, data_dir, se
     if normalize_zscore:
         plot_df[selected_columns] = plot_df[selected_columns].apply(zscore, nan_policy='omit')
 
-    # 📈 지수 시계열 그래프
+    # Index time series plot
     plt.figure(figsize=(12, 6))
     for col in selected_columns:
         if col in plot_df.columns:
@@ -333,7 +333,7 @@ def plot_author_index_and_activity_time_series(author_id, index_df, data_dir, se
     plt.tight_layout()
     plt.show()
 
-    # 📊 논문/인용수 시각화
+    # Paper and citation visualization
     df_papers = load_author_publications(data_dir, author_id, current_year=2013)
     df_papers["year"] = df_papers["year"].astype(int)
     
@@ -365,6 +365,6 @@ def plot_author_index_and_activity_time_series(author_id, index_df, data_dir, se
         
         return plot_df, paper_stats
     else:
-        print("⚠️ 논문 데이터가 없어 활동 시각화를 건너뜁니다.")
+        print("No paper data available, skipping activity visualization.")
         return plot_df, paper_stats
 
