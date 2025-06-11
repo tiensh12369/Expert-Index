@@ -36,7 +36,7 @@ def load_index_df(file_path):
 
 def load_author_index_time_series(author_id, index_by_year_dir, start_year=1970, end_year=2013):
     """
-    연도별 저장된 index_by_YYYY.csv 파일에서 특정 author의 지수 시계열 정보를 가져오는 함수
+    Load index time series for a given author from yearly ``index_by_YYYY.csv`` files.
     """
     records = []
 
