@@ -366,4 +366,5 @@ def plot_author_index_and_activity_time_series(author_id, index_df, data_dir, se
         return plot_df, paper_stats
     else:
         print("⚠️ 논문 데이터가 없어 활동 시각화를 건너뜁니다.")
+        return plot_df, paper_stats
 
